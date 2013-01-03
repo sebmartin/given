@@ -2,6 +2,13 @@ if (ko === undefined) {
     throw "The knockout JS library must be included before this validation library.";
 }
 var tko = (function() {
+    // User overridable settings
+    settings = {
+        subObservableNameIsValid: 'isValid',
+        subObservableNameErrorMessage: 'errorMessage',
+        defaultErrorMessage: 'This field is invalid'
+    }
+    
     // Fallback on native implementation of Object.create if available
     var objectCreate = (Object.create === 'function' ? Object.create : function(o) {
         function F() {}
@@ -9,7 +16,60 @@ var tko = (function() {
         return new F();
     });
     
-    var RootObject = {};
+    function createRuleContext(obCtx, ruleFn) {
+        var ruleCtx = {
+            observableContext: obCtx, 
+             
+            when: function(condition) {
+                
+            },
+            withErrorMessage: function(msg) {
+                
+            },
+            withParams: function(params) {
+                
+            }
+        };
+        
+        // Call the rule within a computed observable to capture all of the
+        // dependencies
+        ruleCtx.ruleObservable = ko.computed(function() {
+            // - Returns true if valid, false otherwise
+            return ruleFn(ruleCtx.observableContext.viewModelContext.viewModel); 
+        });
+        
+        function wrapOb (ob) {
+            ob[tko.settings.subObservableNameIsValid] = ob[tko.settings.subObservableNameIsValid] || ko.observable();
+            ob[tko.settings.subObservableNameErrorMessage] = ob[tko.settings.subObservableNameErrorMessage] || ko.observable();
+            return ob;
+        }
+        
+        function setValid (ob, value) {
+            wrapOb(ob)[tko.settings.subObservableNameIsValid](value);
+        }
+        
+        function setErrMsg(ob, value) {
+            wrapOb(ob)[tko.settings.subObservableNameErrorMessage](value);
+        }
+        
+        // Called when the 'isValid' status changes
+        function onValidStateChanged (isValid) {
+            var errMsg = tko.settings.defaultErrorMessage;
+            
+            // TODO: figure out the error message, if any
+            
+            // Update each observable linked to the rule
+            ko.utils.arrayForEach(obCtx.observables, function(ob) {
+                setValid(ob, isValid);
+                setErrMsg(ob, errMsg);
+            });
+        }
+        // Subscribe to observable and initialize value
+        ruleCtx.ruleObservable.subscribe(onValidStateChanged);
+        onValidStateChanged(ruleCtx.ruleObservable());
+        
+        return ruleCtx;
+    };
     
     function createObservableContext(vmCtx, observables) {
         // wrap observables into an array if not one already
@@ -20,13 +80,18 @@ var tko = (function() {
         // verify that all members of the array are observables
         ko.utils.arrayForEach(observables, function(ob) {
             if (ko.isObservable(ob) == false) {
-                throw new Error("validateObservable accepts only a single KO observable.");
+                throw new Error("The validateObservable method accepts only a single KO observable.");
             }    
         });
         
         var obCtx = {
             viewModelContext: vmCtx,
-            observables: observables
+            observables: observables,
+            rules: [],
+            
+            addRule: function(fn) {
+                return createRuleContext(this, fn);
+            }
         }
         
         return obCtx;
@@ -51,6 +116,7 @@ var tko = (function() {
     }
     
     return {
+        settings: settings,
         givenViewModel: function(viewModel){
             return createViewModelContext(viewModel);
         }
