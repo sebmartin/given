@@ -5,7 +5,7 @@ var tko = (function() {
     // User overridable settings
     settings = {
         subObservableNameIsValid: 'isValid',
-        subObservableNameErrorMessage: 'errorMessage',
+        subObservableNameErrorMessages: 'errorMessages',
         defaultErrorMessage: 'This field is invalid'
     }
     
@@ -16,45 +16,9 @@ var tko = (function() {
         return new F();
     });
     
-    function trackRuleObservable(ob, ruleCtx) {
-        console.log('Tracking observable:' + ob.tag);
-        
-        function createBinding(ob) {
-            return {
-                ob: ob,
-                rules: [],
-                onBeforeChange: function() {
-                    console.log('beforeChange');
-                    console.log(this);
-                },
-                onAfterChange: function() {
-                    console.log('afterChange');
-                    console.log(this);
-                }
-            };            
-        }
-        
-        // Fetch an existing observable binding from the view model context, or add a new one 
-        var vmCtx = ruleCtx.observableContext.viewModelContext;
-        var binding = ko.utils.arrayFirst(vmCtx.validatedObservables, function(binding) {
-            return binding.ob == ob;
-        });
-        if (binding == null) {
-            binding = createBinding(ob);
-            vmCtx.validatedObservables.push(binding);
-            ob.subscribe(binding.onBeforeChange, binding, 'beforeChange');
-            ob.subscribe(binding.onAfterChange, binding, 'afterChange');
-        }
-        binding.rules.push(ruleCtx);
-    }
-    function trackRuleObservables(observables, ruleCtx) {
-        ko.utils.arrayForEach(observables, function(ob) {
-            trackRuleObservable(ob, ruleCtx);
-        })
-    }
-    
     function createRuleContext(obCtx, ruleFn) {
         var ruleCtx = {
+            logicObservable: null, // set below
             observableContext: obCtx, 
              
             when: function(condition) {
@@ -63,49 +27,101 @@ var tko = (function() {
             withErrorMessage: function(msg) {
                 
             },
-            withParams: function(params) {
-                
+            
+            // Called when the 'isValid' status changes
+            onValidStateChanged: function(isValid) {
+                var errMsg = tko.settings.defaultErrorMessage;
+            
+                // TODO: figure out the error message, if any
+            
+                // Update each observable linked to the rule
+                var ruleCtx = this;
+                ko.utils.arrayForEach(this.observableContext.observables, function(ob) {
+                    // setValid(ob, isValid);
+                    // setErrMsg(ob, errMsg);
+                    var vmCtx = ruleCtx.observableContext.viewModelContext;
+                    var ruleBinding = vmCtx.getRuleBinding(ob, ruleCtx);
+                    ruleBinding.setObservableValidity(isValid, errMsg);
+                });
             }
         };
         
-        // Call the rule within a computed observable to capture all of the
-        // dependencies
-        ruleCtx.ruleObservable = ko.computed(function() {
+        // Call the rule within a computed observable to capture all of the dependencies
+        ruleCtx.logicObservable = ko.computed(function() {
             // - Returns true if valid, false otherwise
             return ruleFn(ruleCtx.observableContext.viewModelContext.viewModel); 
         });
         
-        function wrapOb (ob) {
-            ob[tko.settings.subObservableNameIsValid] = ob[tko.settings.subObservableNameIsValid] || ko.observable();
-            ob[tko.settings.subObservableNameErrorMessage] = ob[tko.settings.subObservableNameErrorMessage] || ko.observable();
-            return ob;
-        }
+        function trackRuleObservable(ob, ruleCtx) {
+            function createBinding(ob) {
+                return {
+                    ob: ob,
+                    rules: [],
+                    rulesExecuting: 0,
+                    onBeforeChange: function() {
+                        // Keep track of how many rules are executing so that we only update the
+                        // validity once; on the last rule.
+                        this.rulesExecuting = this.rules.length;
+                    },
+                    setObservableValidity: function(isValid, errorMessage) {
+                        this.rulesExecuting -= 1;
+                        if (this.rulesExecuting <= 0) {
+                            this.rulesExecuting = 0;
+                            var isValid = true;
+                            var errMessages = [];
+                            for (var i=0; i < this.rules.length; i++) {
+                                var rule = this.rules[i];
+                                if (rule.logicObservable() == false) {
+                                    isValid = false;
+                                    errMessages.push(errorMessage);
+                                    break;
+                                }
+                            }
+                            
+                            this.setValid(isValid);
+                            this.setErrMsg(errMessages);
+                        }
+                    },
+
+                    wrappedOb: function() {
+                        var ob = this.ob;
+                        ob[tko.settings.subObservableNameIsValid] = ob[tko.settings.subObservableNameIsValid] || ko.observable();
+                        ob[tko.settings.subObservableNameErrorMessages] = ob[tko.settings.subObservableNameErrorMessages] || ko.observable();
+                        return ob;
+                    },
         
-        function setValid (ob, value) {
-            wrapOb(ob)[tko.settings.subObservableNameIsValid](value);
-        }
+                    setValid: function (value) {
+                        this.wrappedOb()[tko.settings.subObservableNameIsValid](value);
+                    },
         
-        function setErrMsg(ob, value) {
-            wrapOb(ob)[tko.settings.subObservableNameErrorMessage](value);
-        }
+                    setErrMsg: function(value) {
+                        this.wrappedOb(this.ob)[tko.settings.subObservableNameErrorMessages](value);
+                    }
+                };            
+            }
         
-        // Called when the 'isValid' status changes
-        function onValidStateChanged (isValid) {
-            var errMsg = tko.settings.defaultErrorMessage;
-            
-            // TODO: figure out the error message, if any
-            
-            // Update each observable linked to the rule
-            ko.utils.arrayForEach(obCtx.observables, function(ob) {
-                setValid(ob, isValid);
-                setErrMsg(ob, errMsg);
+            // Fetch an existing observable binding from the view model context, or add a new one 
+            var vmCtx = ruleCtx.observableContext.viewModelContext;
+            var binding = ko.utils.arrayFirst(vmCtx.validatedObservables, function(binding) {
+                return binding.ob == ob;
             });
+            if (binding == null) {
+                binding = createBinding(ob);
+                vmCtx.validatedObservables.push(binding);
+                ob.subscribe(binding.onBeforeChange, binding, 'beforeChange');
+            }
+            binding.rules.push(ruleCtx);
         }
-        // Subscribe to observable and initialize value
-        ruleCtx.ruleObservable.subscribe(onValidStateChanged);
-        onValidStateChanged(ruleCtx.ruleObservable());
-        
+        function trackRuleObservables(observables, ruleCtx) {
+            ko.utils.arrayForEach(observables, function(ob) {
+                trackRuleObservable(ob, ruleCtx);
+            })
+        }
         trackRuleObservables(obCtx.observables, ruleCtx);
+        
+        // Subscribe to observable and initialize value
+        ruleCtx.logicObservable.subscribe(ruleCtx.onValidStateChanged, ruleCtx);
+        ruleCtx.onValidStateChanged(ruleCtx.logicObservable());
         
         return ruleCtx;
     };
@@ -156,6 +172,21 @@ var tko = (function() {
                 var obArray = fn(this.viewModel);
                 return createObservableContext(this, obArray);
             },
+            
+            getRuleBinding: function(ob, ruleCtx) {
+                return ko.utils.arrayFirst(this.validatedObservables, function(ruleBinding) {
+                    return (
+                        ruleBinding.ob == ob
+                        && ko.utils.arrayIndexOf(ruleBinding.rules, ruleCtx) >= 0
+                    );
+                })
+            },
+            
+            setRuleResultForObservable: function(ruleCtx, ob) {
+                // 1. find the RB for each ob-rule binding
+                // 2. decrement the remaining rule count
+                // 3. set the valid state if count == 0
+            }
         };
         tko.__givenVmContexts__.push(vmCtx);
         

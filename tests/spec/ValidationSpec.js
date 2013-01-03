@@ -95,7 +95,7 @@ describe("A validation rule", function() {
                 var isValidName = '_isValid';
                 var errMsgName = '_errMsg';
                 tko.settings.subObservableNameIsValid = isValidName;
-                tko.settings.subObservableNameErrorMessage = errMsgName;
+                tko.settings.subObservableNameErrorMessages = errMsgName;
                 
                 var vm = createBasicViewModel();
             
@@ -121,7 +121,7 @@ describe("A validation rule", function() {
                        return vm.firstName().length > 0;
                    });
                
-               expect(vm.firstName.errorMessage()).toEqual(rudeErrMsg);
+               expect(vm.firstName.errorMessages()[0]).toEqual(rudeErrMsg);
             });
         });
         
@@ -135,7 +135,7 @@ describe("A validation rule", function() {
                 });
                 
             expect(vm.firstName.isValid).toBeDefined();
-            expect(vm.firstName.errorMessage).toBeDefined();
+            expect(vm.firstName.errorMessages).toBeDefined();
         });
 
         it("should properly initialize the isValid state when value is already valid", function() {
@@ -243,6 +243,41 @@ describe("A validation rule", function() {
                         .addRule(function(vm) { return false; });
         
             expect(ruleCtx1.observableContext.viewModelContext).toBe(ruleCtx2.observableContext.viewModelContext);
+        });
+
+        it("should not reverse the validation state set by a previous rule", function() {
+            var vm = createBasicViewModel();
+            vm.firstName('Albert');
+            vm.gender('F');
+            
+            // DEBUG
+            vm.firstName.tag = "firstName";
+            vm.gender.tag = "gender";
+            // DEBUG
+            
+            tko.givenViewModel(vm)
+                .validateObservables(function() { 
+                    return [ vm.firstName, vm.gender ]; 
+                })
+                    .addRule(function(vm) {
+                        return vm.firstName() == 'Albert' && vm.gender() == 'M';
+                    });
+            tko.givenViewModel(vm)
+                .validateObservable(function() { return vm.firstName; })
+                    .addRule(function(vm) {
+                        return vm.firstName() != '';
+                    });
+            
+            vm.firstName('Steve');
+                   
+            expect(vm.firstName.isValid()).toBeFalsy();
+            expect(vm.gender.isValid()).toBeFalsy();
+        });
+        
+        it("should set the validity status within the same run loop", function() {
+           // This is to satisfy the design where an observable-rules binding keeps count of the number of rules
+           // left to execute.  If there is a gap in the message loop, then there is a possibility that the 
+           // validation restarts. 
         });
     });
 });
