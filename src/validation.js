@@ -16,6 +16,43 @@ var tko = (function() {
         return new F();
     });
     
+    function trackRuleObservable(ob, ruleCtx) {
+        console.log('Tracking observable:' + ob.tag);
+        
+        function createBinding(ob) {
+            return {
+                ob: ob,
+                rules: [],
+                onBeforeChange: function() {
+                    console.log('beforeChange');
+                    console.log(this);
+                },
+                onAfterChange: function() {
+                    console.log('afterChange');
+                    console.log(this);
+                }
+            };            
+        }
+        
+        // Fetch an existing observable binding from the view model context, or add a new one 
+        var vmCtx = ruleCtx.observableContext.viewModelContext;
+        var binding = ko.utils.arrayFirst(vmCtx.validatedObservables, function(binding) {
+            return binding.ob == ob;
+        });
+        if (binding == null) {
+            binding = createBinding(ob);
+            vmCtx.validatedObservables.push(binding);
+            ob.subscribe(binding.onBeforeChange, binding, 'beforeChange');
+            ob.subscribe(binding.onAfterChange, binding, 'afterChange');
+        }
+        binding.rules.push(ruleCtx);
+    }
+    function trackRuleObservables(observables, ruleCtx) {
+        ko.utils.arrayForEach(observables, function(ob) {
+            trackRuleObservable(ob, ruleCtx);
+        })
+    }
+    
     function createRuleContext(obCtx, ruleFn) {
         var ruleCtx = {
             observableContext: obCtx, 
@@ -68,6 +105,8 @@ var tko = (function() {
         ruleCtx.ruleObservable.subscribe(onValidStateChanged);
         onValidStateChanged(ruleCtx.ruleObservable());
         
+        trackRuleObservables(obCtx.observables, ruleCtx);
+        
         return ruleCtx;
     };
     
@@ -98,8 +137,15 @@ var tko = (function() {
     }
     
     function createViewModelContext(viewModel) {
-        var vmCtx = {
+        var vmCtx = ko.utils.arrayFirst(tko.__givenVmContexts__, function(vmCtx) {
+            return vmCtx.viewModel == viewModel;
+        })
+        if (vmCtx)
+            return vmCtx;
+        
+        vmCtx = {
             viewModel: viewModel,
+            validatedObservables: [],
             
             validateObservable: function(fn) {
                 var ob = fn(this.viewModel);
@@ -109,8 +155,9 @@ var tko = (function() {
             validateObservables: function(fn) {
                 var obArray = fn(this.viewModel);
                 return createObservableContext(this, obArray);
-            }
+            },
         };
+        tko.__givenVmContexts__.push(vmCtx);
         
         return vmCtx;
     }
@@ -119,7 +166,8 @@ var tko = (function() {
         settings: settings,
         givenViewModel: function(viewModel){
             return createViewModelContext(viewModel);
-        }
+        },
+        __givenVmContexts__: []
     }; 
 
 })();

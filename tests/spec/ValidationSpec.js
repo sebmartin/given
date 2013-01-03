@@ -4,6 +4,7 @@ describe("A validation rule", function() {
 			this.firstName = ko.observable('');
 			this.lastName = ko.observable('');
             this.email = ko.observable('');
+            this.gender = ko.observable('');
 		})();
 	}
 	
@@ -225,6 +226,23 @@ describe("A validation rule", function() {
             vm.firstName('Albert');
             expect(vm.firstName.isValid()).toBeTruthy();
             expect(vm.lastName.isValid()).toBeTruthy();
+        });
+    });
+    
+    describe("when validating multiple sets of observables", function() {
+        it("should always re-use existing view model contexts", function() {
+            var vm = createBasicViewModel();
+            
+            var ruleCtx1 = 
+                tko.givenViewModel(vm)
+                    .validateObservable(function() { return vm.firstName; })
+                        .addRule(function(vm) { return false; });
+            var ruleCtx2 = 
+                tko.givenViewModel(vm)
+                    .validateObservable(function() { return vm.firstName; })
+                        .addRule(function(vm) { return false; });
+        
+            expect(ruleCtx1.observableContext.viewModelContext).toBe(ruleCtx2.observableContext.viewModelContext);
         });
     });
 });
