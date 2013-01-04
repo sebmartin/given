@@ -19,26 +19,29 @@ var tko = (function() {
     function createRuleContext(obCtx, ruleFn) {
         var ruleCtx = {
             logicObservable: null, // set below
-            observableContext: obCtx, 
-             
-            when: function(condition) {
-                
-            },
+            observableContext: obCtx,
+            customErrorMessage: null,
+            condition: ko.observable(),
+            
             withErrorMessage: function(msg) {
-                
+                this.customErrorMessage = msg;
+                this.updateObservables();
             },
             
-            // Called when the 'isValid' status changes
-            onValidStateChanged: function(isValid) {
-                var errMsg = tko.settings.defaultErrorMessage;
+            when: function(condition) {
+                this.condition(condition);
+                this.updateObservables();
+            },
             
-                // TODO: figure out the error message, if any
+            updateObservables: function(isValid) {
+                if (isValid === undefined) {
+                    isValid = this.logicObservable();
+                }
+                var errMsg = this.customErrorMessage || tko.settings.defaultErrorMessage;
             
                 // Update each observable linked to the rule
                 var ruleCtx = this;
                 ko.utils.arrayForEach(this.observableContext.observables, function(ob) {
-                    // setValid(ob, isValid);
-                    // setErrMsg(ob, errMsg);
                     var vmCtx = ruleCtx.observableContext.viewModelContext;
                     var ruleBinding = vmCtx.getRuleBinding(ob, ruleCtx);
                     ruleBinding.setObservableValidity(isValid, errMsg);
@@ -47,8 +50,13 @@ var tko = (function() {
         };
         
         // Call the rule within a computed observable to capture all of the dependencies
+        // - Returns true if valid, false otherwise
         ruleCtx.logicObservable = ko.computed(function() {
-            // - Returns true if valid, false otherwise
+            // Check for a condition
+            var condition = ruleCtx.condition();
+            if (typeof condition === 'function' && condition() == false) {
+                return true;
+            }
             return ruleFn(ruleCtx.observableContext.viewModelContext.viewModel); 
         });
         
@@ -120,8 +128,8 @@ var tko = (function() {
         trackRuleObservables(obCtx.observables, ruleCtx);
         
         // Subscribe to observable and initialize value
-        ruleCtx.logicObservable.subscribe(ruleCtx.onValidStateChanged, ruleCtx);
-        ruleCtx.onValidStateChanged(ruleCtx.logicObservable());
+        ruleCtx.logicObservable.subscribe(ruleCtx.updateObservables, ruleCtx);
+        ruleCtx.updateObservables(ruleCtx.logicObservable());
         
         return ruleCtx;
     };

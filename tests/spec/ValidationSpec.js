@@ -1,4 +1,4 @@
-describe("A validation rule", function() {
+describe("Validation:", function() {
 	function createBasicViewModel() {
 		return new (function() {
 			this.firstName = ko.observable('');
@@ -8,7 +8,56 @@ describe("A validation rule", function() {
 		})();
 	}
 	
-	describe("when specifying a view model", function() {
+    describe("Custom settings", function() {
+        var defaultSettings = {};
+            
+        beforeEach(function() {
+            defaultSettings = tko.settings;
+            tko.settings = {};
+            for(setting in defaultSettings) {
+                 tko.settings[setting] = defaultSettings[setting];
+            }
+        });
+            
+        afterEach(function() {
+            tko.settings = defaultSettings;
+        });
+            
+        it("should allow setting custom names of sub-observables", function() {
+            var isValidName = '_isValid';
+            var errMsgName = '_errMsg';
+            tko.settings.subObservableNameIsValid = isValidName;
+            tko.settings.subObservableNameErrorMessages = errMsgName;
+                
+            var vm = createBasicViewModel();
+            
+            tko.givenViewModel(vm)
+                .validateObservable(function() { return vm.firstName; })
+                .addRule(function(vm) {
+                    return vm.firstName().length > 0;
+                });
+                
+            expect(vm.firstName[isValidName]).toBeDefined();
+            expect(vm.firstName[errMsgName]).toBeDefined();
+        });
+            
+        it("should allow setting a new default error message", function() {
+           var rudeErrMsg = 'This is plain wrong, you dummy!';
+           tko.settings.defaultErrorMessage = rudeErrMsg;
+               
+           var vm = createBasicViewModel();
+            
+           tko.givenViewModel(vm)
+               .validateObservable(function() { return vm.firstName; })
+               .addRule(function(vm) {
+                   return vm.firstName().length > 0;
+               });
+               
+           expect(vm.firstName.errorMessages()[0]).toEqual(rudeErrMsg);
+        });
+    });
+    
+	describe("A view model context", function() {
 		it("should keep a reference to the VM", function() {
 			var vm = createBasicViewModel();
 			
@@ -16,9 +65,50 @@ describe("A validation rule", function() {
 			
 			expect(vmCtx.viewModel).toBe(vm);
 		});
+        
+        describe("with multiple observable contexts", function() {
+            it("should always re-use existing view model contexts", function() {
+                var vm = createBasicViewModel();
+            
+                var ruleCtx1 = 
+                    tko.givenViewModel(vm)
+                        .validateObservable(function() { return vm.firstName; })
+                            .addRule(function(vm) { return false; });
+                var ruleCtx2 = 
+                    tko.givenViewModel(vm)
+                        .validateObservable(function() { return vm.firstName; })
+                            .addRule(function(vm) { return false; });
+        
+                expect(ruleCtx1.observableContext.viewModelContext).toBe(ruleCtx2.observableContext.viewModelContext);
+            });
+
+            it("should not reverse the validation state set by a previous rule", function() {
+                var vm = createBasicViewModel();
+                vm.firstName('Albert');
+                vm.gender('F');
+            
+                tko.givenViewModel(vm)
+                    .validateObservables(function() { 
+                        return [ vm.firstName, vm.gender ]; 
+                    })
+                        .addRule(function(vm) {
+                            return vm.firstName() == 'Albert' && vm.gender() == 'M';
+                        });
+                tko.givenViewModel(vm)
+                    .validateObservable(function() { return vm.firstName; })
+                        .addRule(function(vm) {
+                            return vm.firstName() != '';
+                        });
+            
+                vm.firstName('Steve');
+                   
+                expect(vm.firstName.isValid()).toBeFalsy();
+                expect(vm.gender.isValid()).toBeFalsy();
+            });
+        });
 	});
     
-    describe("when specifying observable(s) to validate", function() {
+    describe("An observable context", function() {
         it("should retain a reference to the view model context", function() {
             var vm = createBasicViewModel();
             
@@ -75,56 +165,7 @@ describe("A validation rule", function() {
         });
     });
     
-    describe("when adding a validation rule", function() {
-        describe("with custom settings", function() {
-            var defaultSettings = {};
-            
-            beforeEach(function() {
-                defaultSettings = tko.settings;
-                tko.settings = {};
-                for(setting in defaultSettings) {
-                     tko.settings[setting] = defaultSettings[setting];
-                }
-            });
-            
-            afterEach(function() {
-                tko.settings = defaultSettings;
-            });
-            
-            it("should respect settings for custom names of sub-observables", function() {
-                var isValidName = '_isValid';
-                var errMsgName = '_errMsg';
-                tko.settings.subObservableNameIsValid = isValidName;
-                tko.settings.subObservableNameErrorMessages = errMsgName;
-                
-                var vm = createBasicViewModel();
-            
-                tko.givenViewModel(vm)
-                    .validateObservable(function() { return vm.firstName; })
-                    .addRule(function(vm) {
-                        return vm.firstName().length > 0;
-                    });
-                
-                expect(vm.firstName[isValidName]).toBeDefined();
-                expect(vm.firstName[errMsgName]).toBeDefined();
-            });
-            
-            it("should respect the custom error message", function() {
-               var rudeErrMsg = 'This is plain wrong, you dummy!';
-               tko.settings.defaultErrorMessage = rudeErrMsg;
-               
-               var vm = createBasicViewModel();
-            
-               tko.givenViewModel(vm)
-                   .validateObservable(function() { return vm.firstName; })
-                   .addRule(function(vm) {
-                       return vm.firstName().length > 0;
-                   });
-               
-               expect(vm.firstName.errorMessages()[0]).toEqual(rudeErrMsg);
-            });
-        });
-        
+    describe("A rule context", function() {
         it("should define isValid and errorMessage as sub-observables", function() {
             var vm = createBasicViewModel();
             
@@ -163,121 +204,172 @@ describe("A validation rule", function() {
                 
             expect(vm.firstName.isValid()).toBeFalsy();
         });
-        
-        it("should set the initial validity state of each selected observable when validating two (valid) observables", function() {
-            var vm = createBasicViewModel();
-            vm.firstName('');
-            
-            tko.givenViewModel(vm)
-                .validateObservables(function() { 
-                    return [ vm.firstName, vm.lastName ]; })
-                .addRule(function(vm) {
-                    return true;
-                });
-                
-            expect(vm.firstName.isValid()).toBeTruthy();
-            expect(vm.lastName.isValid()).toBeTruthy();
-        });
-        
-        it("should set the initial validity state of each selected observable when validating two (invalid) observables", function() {
-            var vm = createBasicViewModel();
-            vm.firstName('');
-            
-            tko.givenViewModel(vm)
-                .validateObservables(function() { 
-                    return [ vm.firstName, vm.lastName ]; })
-                .addRule(function(vm) {
-                    return false;
-                });
-                
-            expect(vm.firstName.isValid()).toBeFalsy();
-            expect(vm.lastName.isValid()).toBeFalsy();
-        });
-        
-        it("should update the validity state when selecting a single observable", function() {
-            var vm = createBasicViewModel();
-            vm.firstName('');
-            
-            tko.givenViewModel(vm)
-                .validateObservable(function() { return vm.firstName; })
-                .addRule(function(vm) {
-                    return vm.firstName().length > 0;
-                });
-                
-            expect(vm.firstName.isValid()).toBeFalsy();  // Should initialize to false
-            vm.firstName('Albert');
-            expect(vm.firstName.isValid()).toBeTruthy();
-        });
-        
-        it("should update the validity state of each observable if selecting more than one", function() {
-            var vm = createBasicViewModel();
-            vm.firstName('');
-            
-            tko.givenViewModel(vm)
-                .validateObservables(function() { 
-                    return [ vm.firstName, vm.lastName ]; 
-                })
-                .addRule(function(vm) {
-                    return vm.firstName().length > 0;
-                });
-                
-            expect(vm.firstName.isValid()).toBeFalsy();  // Should initialize to false
-            expect(vm.lastName.isValid()).toBeFalsy();  // Should initialize to false
-            vm.firstName('Albert');
-            expect(vm.firstName.isValid()).toBeTruthy();
-            expect(vm.lastName.isValid()).toBeTruthy();
-        });
     });
     
-    describe("when validating multiple sets of observables", function() {
-        it("should always re-use existing view model contexts", function() {
-            var vm = createBasicViewModel();
+    describe("A validation rule", function() {
+        
+        describe("with one observable", function() {
+        
+            it("should update the observable's validity state", function() {
+                var vm = createBasicViewModel();
+                vm.firstName('');
             
-            var ruleCtx1 = 
                 tko.givenViewModel(vm)
                     .validateObservable(function() { return vm.firstName; })
-                        .addRule(function(vm) { return false; });
-            var ruleCtx2 = 
+                    .addRule(function(vm) {
+                        return vm.firstName().length > 0;
+                    });
+                
+                expect(vm.firstName.isValid()).toBeFalsy();  // Should initialize to false
+                vm.firstName('Albert');
+                expect(vm.firstName.isValid()).toBeTruthy();
+            });
+        
+            it("should allow setting an error message", function() {
+                var vm = createBasicViewModel();
+                var message = 'CUSTOM ERROR';
+            
                 tko.givenViewModel(vm)
-                    .validateObservable(function() { return vm.firstName; })
-                        .addRule(function(vm) { return false; });
-        
-            expect(ruleCtx1.observableContext.viewModelContext).toBe(ruleCtx2.observableContext.viewModelContext);
-        });
-
-        it("should not reverse the validation state set by a previous rule", function() {
-            var vm = createBasicViewModel();
-            vm.firstName('Albert');
-            vm.gender('F');
-            
-            // DEBUG
-            vm.firstName.tag = "firstName";
-            vm.gender.tag = "gender";
-            // DEBUG
-            
-            tko.givenViewModel(vm)
-                .validateObservables(function() { 
-                    return [ vm.firstName, vm.gender ]; 
-                })
+                    .validateObservables(function() { 
+                        return vm.firstName;
+                    })
                     .addRule(function(vm) {
-                        return vm.firstName() == 'Albert' && vm.gender() == 'M';
-                    });
-            tko.givenViewModel(vm)
-                .validateObservable(function() { return vm.firstName; })
-                    .addRule(function(vm) {
-                        return vm.firstName() != '';
-                    });
+                        return false;
+                    })
+                    .withErrorMessage(message);
             
-            vm.firstName('Steve');
-                   
-            expect(vm.firstName.isValid()).toBeFalsy();
-            expect(vm.gender.isValid()).toBeFalsy();
+                expect(vm.firstName.errorMessages()[0]).toEqual(message);
+            });
+            
+            describe("and a condition", function() {
+                it("should always be valid when the condition fails", function() {
+                    var vm = createBasicViewModel();
+            
+                    tko.givenViewModel(vm)
+                        .validateObservable(function() { return vm.firstName; })
+                            .addRule(function(vm) {
+                                return false;
+                            })
+                            .when(function(vm) { return false; });
+            
+                    expect(vm.firstName.isValid()).toBeTruthy();
+                });
+            
+                it("should be executed when the condition passes", function() {
+                    var vm = createBasicViewModel();
+            
+                    tko.givenViewModel(vm)
+                        .validateObservable(function() { return vm.firstName; })
+                            .addRule(function(vm) {
+                                return false;
+                            })
+                            .when(function(vm) { return true; });
+            
+                    expect(vm.firstName.isValid()).toBeFalsy();
+                });
+            });
         });
+       
+        describe("with more than one observable", function() {
+            it("should set the initial validity state of each selected observable when validating two (valid) observables", function() {
+                var vm = createBasicViewModel();
+                vm.firstName('');
+            
+                tko.givenViewModel(vm)
+                    .validateObservables(function() { 
+                        return [ vm.firstName, vm.lastName ]; })
+                    .addRule(function(vm) {
+                        return true;
+                    });
+                
+                expect(vm.firstName.isValid()).toBeTruthy();
+                expect(vm.lastName.isValid()).toBeTruthy();
+            });
         
-        it("should set the validity status within the same run loop", function() {
-           // This is to satisfy the design where an observable-rules binding keeps count of the number of rules
-           // left to execute.  If there is a gap in the message loop, then there is a possibility that the 
-           // validation restarts. 
+            it("should set the initial validity state of each selected observable when validating two (invalid) observables", function() {
+                var vm = createBasicViewModel();
+                vm.firstName('');
+            
+                tko.givenViewModel(vm)
+                    .validateObservables(function() { 
+                        return [ vm.firstName, vm.lastName ]; })
+                    .addRule(function(vm) {
+                        return false;
+                    });
+                
+                expect(vm.firstName.isValid()).toBeFalsy();
+                expect(vm.lastName.isValid()).toBeFalsy();
+            });
+        
+            it("should update the validity state of each observable", function() {
+                var vm = createBasicViewModel();
+                vm.firstName('');
+            
+                tko.givenViewModel(vm)
+                    .validateObservables(function() { 
+                        return [ vm.firstName, vm.lastName ]; 
+                    })
+                    .addRule(function(vm) {
+                        return vm.firstName().length > 0;
+                    });
+                
+                expect(vm.firstName.isValid()).toBeFalsy();  // Should initialize to false
+                expect(vm.lastName.isValid()).toBeFalsy();  // Should initialize to false
+                vm.firstName('Albert');
+                expect(vm.firstName.isValid()).toBeTruthy();
+                expect(vm.lastName.isValid()).toBeTruthy();
+            });
+        
+            it("should allow setting an error message for more than one observable", function() {
+                var vm = createBasicViewModel();
+                var message = 'CUSTOM ERROR';
+            
+                tko.givenViewModel(vm)
+                    .validateObservables(function() { 
+                        return [ vm.firstName, vm.lastName ]; 
+                    })
+                        .addRule(function(vm) {
+                            return false;
+                        })
+                        .withErrorMessage(message);
+            
+                expect(vm.firstName.errorMessages()[0]).toEqual(message);
+                expect(vm.lastName.errorMessages()[0]).toEqual(message);
+            });
+            
+            describe("and a condition", function() {
+                it("should always be valid when the condition fails", function() {
+                    var vm = createBasicViewModel();
+            
+                    tko.givenViewModel(vm)
+                        .validateObservables(function() { 
+                            return [ vm.firstName, vm.lastName ]; 
+                        })
+                            .addRule(function(vm) {
+                                return false;
+                            })
+                            .when(function(vm) { return false; });
+            
+                    expect(vm.firstName.isValid()).toBeTruthy();            
+                    expect(vm.lastName.isValid()).toBeTruthy();
+                });
+            
+                it("should be executed when the condition passes", function() {
+                    var vm = createBasicViewModel();
+            
+                    tko.givenViewModel(vm)
+                        .validateObservables(function() { 
+                            return [ vm.firstName, vm.lastName ]; 
+                        })
+                            .addRule(function(vm) {
+                                return false;
+                            })
+                            .when(function(vm) { return true; });
+            
+                    expect(vm.firstName.isValid()).toBeFalsy();
+                    expect(vm.lastName.isValid()).toBeFalsy();
+                });
+            });
         });
     });
 });
