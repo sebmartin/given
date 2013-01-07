@@ -1,7 +1,7 @@
 if (ko === undefined) {
     throw "The knockout JS library must be included before this validation library.";
 }
-var tko = (function() {
+ko.given = (function() {
     // User overridable settings
     settings = {
         subObservableNameIsValid: 'isValid',
@@ -37,7 +37,7 @@ var tko = (function() {
                 if (isValid === undefined) {
                     isValid = this.logicObservable();
                 }
-                var errMsg = this.customErrorMessage || tko.settings.defaultErrorMessage;
+                var errMsg = this.customErrorMessage || ko.given.settings.defaultErrorMessage;
             
                 // Update each observable linked to the rule
                 var ruleCtx = this;
@@ -93,17 +93,17 @@ var tko = (function() {
 
                     wrappedOb: function() {
                         var ob = this.ob;
-                        ob[tko.settings.subObservableNameIsValid] = ob[tko.settings.subObservableNameIsValid] || ko.observable();
-                        ob[tko.settings.subObservableNameErrorMessages] = ob[tko.settings.subObservableNameErrorMessages] || ko.observable();
+                        ob[ko.given.settings.subObservableNameIsValid] = ob[ko.given.settings.subObservableNameIsValid] || ko.observable();
+                        ob[ko.given.settings.subObservableNameErrorMessages] = ob[ko.given.settings.subObservableNameErrorMessages] || ko.observable();
                         return ob;
                     },
         
                     setValid: function (value) {
-                        this.wrappedOb()[tko.settings.subObservableNameIsValid](value);
+                        this.wrappedOb()[ko.given.settings.subObservableNameIsValid](value);
                     },
         
                     setErrMsg: function(value) {
-                        this.wrappedOb(this.ob)[tko.settings.subObservableNameErrorMessages](value);
+                        this.wrappedOb(this.ob)[ko.given.settings.subObservableNameErrorMessages](value);
                     }
                 };            
             }
@@ -161,7 +161,7 @@ var tko = (function() {
     }
     
     function createViewModelContext(viewModel) {
-        var vmCtx = ko.utils.arrayFirst(tko.__givenVmContexts__, function(vmCtx) {
+        var vmCtx = ko.utils.arrayFirst(ko.given.__givenVmContexts__, function(vmCtx) {
             return vmCtx.viewModel == viewModel;
         })
         if (vmCtx)
@@ -196,14 +196,14 @@ var tko = (function() {
                 // 3. set the valid state if count == 0
             }
         };
-        tko.__givenVmContexts__.push(vmCtx);
+        ko.given.__givenVmContexts__.push(vmCtx);
         
         return vmCtx;
     }
     
     return {
         settings: settings,
-        givenViewModel: function(viewModel){
+        viewModel: function(viewModel){
             return createViewModelContext(viewModel);
         },
         __givenVmContexts__: []

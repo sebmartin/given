@@ -12,26 +12,26 @@ describe("Validation:", function() {
         var defaultSettings = {};
             
         beforeEach(function() {
-            defaultSettings = tko.settings;
-            tko.settings = {};
+            defaultSettings = ko.given.settings;
+            ko.given.settings = {};
             for(setting in defaultSettings) {
-                 tko.settings[setting] = defaultSettings[setting];
+                 ko.given.settings[setting] = defaultSettings[setting];
             }
         });
             
         afterEach(function() {
-            tko.settings = defaultSettings;
+            ko.given.settings = defaultSettings;
         });
             
         it("should allow setting custom names of sub-observables", function() {
             var isValidName = '_isValid';
             var errMsgName = '_errMsg';
-            tko.settings.subObservableNameIsValid = isValidName;
-            tko.settings.subObservableNameErrorMessages = errMsgName;
+            ko.given.settings.subObservableNameIsValid = isValidName;
+            ko.given.settings.subObservableNameErrorMessages = errMsgName;
                 
             var vm = createBasicViewModel();
             
-            tko.givenViewModel(vm)
+            ko.given.viewModel(vm)
                 .validateObservable(function() { return vm.firstName; })
                 .addRule(function(vm) {
                     return vm.firstName().length > 0;
@@ -43,11 +43,11 @@ describe("Validation:", function() {
             
         it("should allow setting a new default error message", function() {
            var rudeErrMsg = 'This is plain wrong, you dummy!';
-           tko.settings.defaultErrorMessage = rudeErrMsg;
+           ko.given.settings.defaultErrorMessage = rudeErrMsg;
                
            var vm = createBasicViewModel();
             
-           tko.givenViewModel(vm)
+           ko.given.viewModel(vm)
                .validateObservable(function() { return vm.firstName; })
                .addRule(function(vm) {
                    return vm.firstName().length > 0;
@@ -61,7 +61,7 @@ describe("Validation:", function() {
 		it("should keep a reference to the VM", function() {
 			var vm = createBasicViewModel();
 			
-			var vmCtx = tko.givenViewModel(vm);
+			var vmCtx = ko.given.viewModel(vm);
 			
 			expect(vmCtx.viewModel).toBe(vm);
 		});
@@ -71,11 +71,11 @@ describe("Validation:", function() {
                 var vm = createBasicViewModel();
             
                 var ruleCtx1 = 
-                    tko.givenViewModel(vm)
+                    ko.given.viewModel(vm)
                         .validateObservable(function() { return vm.firstName; })
                             .addRule(function(vm) { return false; });
                 var ruleCtx2 = 
-                    tko.givenViewModel(vm)
+                    ko.given.viewModel(vm)
                         .validateObservable(function() { return vm.firstName; })
                             .addRule(function(vm) { return false; });
         
@@ -87,14 +87,14 @@ describe("Validation:", function() {
                 vm.firstName('Albert');
                 vm.gender('F');
             
-                tko.givenViewModel(vm)
+                ko.given.viewModel(vm)
                     .validateObservables(function() { 
                         return [ vm.firstName, vm.gender ]; 
                     })
                         .addRule(function(vm) {
                             return vm.firstName() == 'Albert' && vm.gender() == 'M';
                         });
-                tko.givenViewModel(vm)
+                ko.given.viewModel(vm)
                     .validateObservable(function() { return vm.firstName; })
                         .addRule(function(vm) {
                             return vm.firstName() != '';
@@ -112,7 +112,7 @@ describe("Validation:", function() {
         it("should retain a reference to the view model context", function() {
             var vm = createBasicViewModel();
             
-            var vmCtx = tko.givenViewModel(vm);
+            var vmCtx = ko.given.viewModel(vm);
             var obCtx = vmCtx.validateObservable(function(vm) {
                 return vm.firstName;
             });
@@ -123,7 +123,7 @@ describe("Validation:", function() {
         it("should allow specifying a single observable using the singular method", function() {
             var vm = createBasicViewModel();
             
-            var obCtx = tko.givenViewModel(vm).validateObservable(function(vm) {
+            var obCtx = ko.given.viewModel(vm).validateObservable(function(vm) {
                 return vm.firstName;
             });
             
@@ -134,7 +134,7 @@ describe("Validation:", function() {
             var vm = createBasicViewModel();
                     
             function act() {
-                var obCtx = tko.givenViewModel(vm).validateObservable(function(vm) {
+                var obCtx = ko.given.viewModel(vm).validateObservable(function(vm) {
                     return [vm.firstName, vm.lastName];
                 });
             }
@@ -146,7 +146,7 @@ describe("Validation:", function() {
             var vm = createBasicViewModel();
             
             function act() {
-                var obCtx = tko.givenViewModel(vm).validateObservable(function(vm) {
+                var obCtx = ko.given.viewModel(vm).validateObservable(function(vm) {
                     return "not an observable";
                 });                
             }
@@ -157,7 +157,7 @@ describe("Validation:", function() {
         it("should allow specifying multiple observables using the plural method", function() {
             var vm = createBasicViewModel();
             
-            var obCtx = tko.givenViewModel(vm).validateObservables(function(vm) {
+            var obCtx = ko.given.viewModel(vm).validateObservables(function(vm) {
                 return [vm.firstName, vm.lastName];
             });
             
@@ -169,7 +169,7 @@ describe("Validation:", function() {
         it("should define isValid and errorMessage as sub-observables", function() {
             var vm = createBasicViewModel();
             
-            tko.givenViewModel(vm)
+            ko.given.viewModel(vm)
                 .validateObservable(function() { return vm.firstName; })
                 .addRule(function(vm) {
                     return vm.firstName().length > 0;
@@ -183,7 +183,7 @@ describe("Validation:", function() {
             var vm = createBasicViewModel();
             vm.firstName('Albert');
             
-            tko.givenViewModel(vm)
+            ko.given.viewModel(vm)
                 .validateObservable(function() { return vm.firstName; })
                 .addRule(function(vm) {
                     return vm.firstName().length > 0;
@@ -196,7 +196,7 @@ describe("Validation:", function() {
             var vm = createBasicViewModel();
             vm.firstName('');
             
-            tko.givenViewModel(vm)
+            ko.given.viewModel(vm)
                 .validateObservable(function() { return vm.firstName; })
                 .addRule(function(vm) {
                     return vm.firstName().length > 0;
@@ -214,7 +214,7 @@ describe("Validation:", function() {
                 var vm = createBasicViewModel();
                 vm.firstName('');
             
-                tko.givenViewModel(vm)
+                ko.given.viewModel(vm)
                     .validateObservable(function() { return vm.firstName; })
                     .addRule(function(vm) {
                         return vm.firstName().length > 0;
@@ -229,7 +229,7 @@ describe("Validation:", function() {
                 var vm = createBasicViewModel();
                 var message = 'CUSTOM ERROR';
             
-                tko.givenViewModel(vm)
+                ko.given.viewModel(vm)
                     .validateObservables(function() { 
                         return vm.firstName;
                     })
@@ -245,7 +245,7 @@ describe("Validation:", function() {
                 it("should always be valid when the condition fails", function() {
                     var vm = createBasicViewModel();
             
-                    tko.givenViewModel(vm)
+                    ko.given.viewModel(vm)
                         .validateObservable(function() { return vm.firstName; })
                             .addRule(function(vm) {
                                 return false;
@@ -258,7 +258,7 @@ describe("Validation:", function() {
                 it("should be executed when the condition passes", function() {
                     var vm = createBasicViewModel();
             
-                    tko.givenViewModel(vm)
+                    ko.given.viewModel(vm)
                         .validateObservable(function() { return vm.firstName; })
                             .addRule(function(vm) {
                                 return false;
@@ -275,7 +275,7 @@ describe("Validation:", function() {
                 var vm = createBasicViewModel();
                 vm.firstName('');
             
-                tko.givenViewModel(vm)
+                ko.given.viewModel(vm)
                     .validateObservables(function() { 
                         return [ vm.firstName, vm.lastName ]; })
                     .addRule(function(vm) {
@@ -290,7 +290,7 @@ describe("Validation:", function() {
                 var vm = createBasicViewModel();
                 vm.firstName('');
             
-                tko.givenViewModel(vm)
+                ko.given.viewModel(vm)
                     .validateObservables(function() { 
                         return [ vm.firstName, vm.lastName ]; })
                     .addRule(function(vm) {
@@ -305,7 +305,7 @@ describe("Validation:", function() {
                 var vm = createBasicViewModel();
                 vm.firstName('');
             
-                tko.givenViewModel(vm)
+                ko.given.viewModel(vm)
                     .validateObservables(function() { 
                         return [ vm.firstName, vm.lastName ]; 
                     })
@@ -324,7 +324,7 @@ describe("Validation:", function() {
                 var vm = createBasicViewModel();
                 var message = 'CUSTOM ERROR';
             
-                tko.givenViewModel(vm)
+                ko.given.viewModel(vm)
                     .validateObservables(function() { 
                         return [ vm.firstName, vm.lastName ]; 
                     })
@@ -341,7 +341,7 @@ describe("Validation:", function() {
                 it("should always be valid when the condition fails", function() {
                     var vm = createBasicViewModel();
             
-                    tko.givenViewModel(vm)
+                    ko.given.viewModel(vm)
                         .validateObservables(function() { 
                             return [ vm.firstName, vm.lastName ]; 
                         })
@@ -357,7 +357,7 @@ describe("Validation:", function() {
                 it("should be executed when the condition passes", function() {
                     var vm = createBasicViewModel();
             
-                    tko.givenViewModel(vm)
+                    ko.given.viewModel(vm)
                         .validateObservables(function() { 
                             return [ vm.firstName, vm.lastName ]; 
                         })
