@@ -32,7 +32,7 @@ describe("Validation:", function() {
             var vm = createBasicViewModel();
             
             ko.given.viewModel(vm)
-                .validateObservable(function() { return vm.firstName; })
+                .validateObservable(function(vm) { return vm.firstName; })
                 .addRule(function(vm) {
                     return vm.firstName().length > 0;
                 });
@@ -48,7 +48,7 @@ describe("Validation:", function() {
            var vm = createBasicViewModel();
             
            ko.given.viewModel(vm)
-               .validateObservable(function() { return vm.firstName; })
+               .validateObservable(function(vm) { return vm.firstName; })
                .addRule(function(vm) {
                    return vm.firstName().length > 0;
                });
@@ -72,11 +72,11 @@ describe("Validation:", function() {
             
                 var ruleCtx1 = 
                     ko.given.viewModel(vm)
-                        .validateObservable(function() { return vm.firstName; })
+                        .validateObservable(function(vm) { return vm.firstName; })
                             .addRule(function(vm) { return false; });
                 var ruleCtx2 = 
                     ko.given.viewModel(vm)
-                        .validateObservable(function() { return vm.firstName; })
+                        .validateObservable(function(vm) { return vm.firstName; })
                             .addRule(function(vm) { return false; });
         
                 expect(ruleCtx1.observableContext.viewModelContext).toBe(ruleCtx2.observableContext.viewModelContext);
@@ -88,14 +88,14 @@ describe("Validation:", function() {
                 vm.gender('F');
             
                 ko.given.viewModel(vm)
-                    .validateObservables(function() { 
+                    .validateObservables(function(vm) { 
                         return [ vm.firstName, vm.gender ]; 
                     })
                         .addRule(function(vm) {
                             return vm.firstName() == 'Albert' && vm.gender() == 'M';
                         });
                 ko.given.viewModel(vm)
-                    .validateObservable(function() { return vm.firstName; })
+                    .validateObservable(function(vm) { return vm.firstName; })
                         .addRule(function(vm) {
                             return vm.firstName() != '';
                         });
@@ -170,7 +170,7 @@ describe("Validation:", function() {
             var vm = createBasicViewModel();
             
             ko.given.viewModel(vm)
-                .validateObservable(function() { return vm.firstName; })
+                .validateObservable(function(vm) { return vm.firstName; })
                 .addRule(function(vm) {
                     return vm.firstName().length > 0;
                 });
@@ -184,7 +184,7 @@ describe("Validation:", function() {
             vm.firstName('Albert');
             
             ko.given.viewModel(vm)
-                .validateObservable(function() { return vm.firstName; })
+                .validateObservable(function(vm) { return vm.firstName; })
                 .addRule(function(vm) {
                     return vm.firstName().length > 0;
                 });
@@ -197,7 +197,7 @@ describe("Validation:", function() {
             vm.firstName('');
             
             ko.given.viewModel(vm)
-                .validateObservable(function() { return vm.firstName; })
+                .validateObservable(function(vm) { return vm.firstName; })
                 .addRule(function(vm) {
                     return vm.firstName().length > 0;
                 });
@@ -215,7 +215,7 @@ describe("Validation:", function() {
                 vm.firstName('');
             
                 ko.given.viewModel(vm)
-                    .validateObservable(function() { return vm.firstName; })
+                    .validateObservable(function(vm) { return vm.firstName; })
                     .addRule(function(vm) {
                         return vm.firstName().length > 0;
                     });
@@ -225,12 +225,12 @@ describe("Validation:", function() {
                 expect(vm.firstName.isValid()).toBeTruthy();
             });
         
-            it("should allow setting an error message", function() {
+            it("should allow setting an error message", function(vm) {
                 var vm = createBasicViewModel();
                 var message = 'CUSTOM ERROR';
             
                 ko.given.viewModel(vm)
-                    .validateObservables(function() { 
+                    .validateObservables(function(vm) { 
                         return vm.firstName;
                     })
                     .addRule(function(vm) {
@@ -246,7 +246,7 @@ describe("Validation:", function() {
                     var vm = createBasicViewModel();
             
                     ko.given.viewModel(vm)
-                        .validateObservable(function() { return vm.firstName; })
+                        .validateObservable(function(vm) { return vm.firstName; })
                             .addRule(function(vm) {
                                 return false;
                             })
@@ -259,7 +259,7 @@ describe("Validation:", function() {
                     var vm = createBasicViewModel();
             
                     ko.given.viewModel(vm)
-                        .validateObservable(function() { return vm.firstName; })
+                        .validateObservable(function(vm) { return vm.firstName; })
                             .addRule(function(vm) {
                                 return false;
                             })
@@ -276,7 +276,7 @@ describe("Validation:", function() {
                 vm.firstName('');
             
                 ko.given.viewModel(vm)
-                    .validateObservables(function() { 
+                    .validateObservables(function(vm) { 
                         return [ vm.firstName, vm.lastName ]; })
                     .addRule(function(vm) {
                         return true;
@@ -291,7 +291,7 @@ describe("Validation:", function() {
                 vm.firstName('');
             
                 ko.given.viewModel(vm)
-                    .validateObservables(function() { 
+                    .validateObservables(function(vm) { 
                         return [ vm.firstName, vm.lastName ]; })
                     .addRule(function(vm) {
                         return false;
@@ -306,7 +306,7 @@ describe("Validation:", function() {
                 vm.firstName('');
             
                 ko.given.viewModel(vm)
-                    .validateObservables(function() { 
+                    .validateObservables(function(vm) { 
                         return [ vm.firstName, vm.lastName ]; 
                     })
                     .addRule(function(vm) {
@@ -325,7 +325,7 @@ describe("Validation:", function() {
                 var message = 'CUSTOM ERROR';
             
                 ko.given.viewModel(vm)
-                    .validateObservables(function() { 
+                    .validateObservables(function(vm) { 
                         return [ vm.firstName, vm.lastName ]; 
                     })
                         .addRule(function(vm) {
@@ -342,7 +342,7 @@ describe("Validation:", function() {
                     var vm = createBasicViewModel();
             
                     ko.given.viewModel(vm)
-                        .validateObservables(function() { 
+                        .validateObservables(function(vm) { 
                             return [ vm.firstName, vm.lastName ]; 
                         })
                             .addRule(function(vm) {
@@ -358,7 +358,7 @@ describe("Validation:", function() {
                     var vm = createBasicViewModel();
             
                     ko.given.viewModel(vm)
-                        .validateObservables(function() { 
+                        .validateObservables(function(vm) { 
                             return [ vm.firstName, vm.lastName ]; 
                         })
                             .addRule(function(vm) {
