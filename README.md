@@ -154,6 +154,7 @@ You can call any of these methods more than once to manage the context of your r
 
 There are a few key features on the current roadmap:
 
+- Named rules for the most common validation rules (required, min, max, numeric, etc.)
 - Ability to specify the trigger for the validation.  This is to allow specifying when a validation rule should be executed.  Some values could include:
 	- **Auto** : as soon as the observable is set/changed
 	- **On Validate** : add a method on the view model to trigger the validation and validation rules will not be executed before this method is called.  This could be desired in order to only show the validation error when the user completes a form.
