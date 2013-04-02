@@ -1,0 +1,6 @@
+[submodule "lib/knockout"]
+	path = lib/knockout
+	url = git://github.com/SteveSanderson/knockout.git
+[submodule "lib/jasmine"]
+	path = lib/jasmine
+	url = git://github.com/pivotal/jasmine.git
