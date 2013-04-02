@@ -9,7 +9,7 @@ ko.given = (function() {
         defaultErrorMessage: 'This field is invalid'
     }
     
-    // Fallback on native implementation of Object.create if available
+    // Fallback on native implementation of Object.create if not available
     var objectCreate = (Object.create === 'function' ? Object.create : function(o) {
         function F() {}
         F.prototype = o;
@@ -23,16 +23,20 @@ ko.given = (function() {
             customErrorMessage: null,
             condition: ko.observable(),
             
+            // Specify an error message for a given rule
             withErrorMessage: function(msg) {
                 this.customErrorMessage = msg;
                 this.updateObservables();
             },
             
+            // Specify a condition for the rule.  The rule will only be executed when this
+            // is satisfied.
             when: function(condition) {
                 this.condition(condition);
                 this.updateObservables();
             },
             
+            // Used to set the validity of an observable
             updateObservables: function(isValid) {
                 if (isValid === undefined) {
                     isValid = this.logicObservable();
@@ -52,7 +56,7 @@ ko.given = (function() {
         // Call the rule within a computed observable to capture all of the dependencies
         // - Returns true if valid, false otherwise
         ruleCtx.logicObservable = ko.computed(function() {
-            // Check for a condition
+            // Rules can be active/inactive based on a condition specified by when()
             var condition = ruleCtx.condition();
             if (typeof condition === 'function' && condition() == false) {
                 return true;
@@ -60,6 +64,9 @@ ko.given = (function() {
             return ruleFn(ruleCtx.observableContext.viewModelContext.viewModel); 
         });
         
+        // Track rule <-> observable bindings.  This is necessary for cases where one observable is validated
+        // by more than one rule.  If the first rule sets it to invalid but the second sets it to valid, we need
+        // to make sure that the observable is still set to invalid, regardless of rules' execution order.
         function trackRuleObservable(ob, ruleCtx) {
             function createBinding(ob) {
                 return {
@@ -127,7 +134,7 @@ ko.given = (function() {
         }
         trackRuleObservables(obCtx.observables, ruleCtx);
         
-        // Subscribe to observable and initialize value
+        // Subscribe to logic observable to update the observables when its value changes and initialize initial value
         ruleCtx.logicObservable.subscribe(ruleCtx.updateObservables, ruleCtx);
         ruleCtx.updateObservables(ruleCtx.logicObservable());
         
@@ -143,7 +150,7 @@ ko.given = (function() {
         // verify that all members of the array are observables
         ko.utils.arrayForEach(observables, function(ob) {
             if (ko.isObservable(ob) == false) {
-                throw new Error("The validateObservable method accepts only a single KO observable.");
+                throw new Error("Invalid Knockout Observabe.  Cannot create observable context with parameter: " + ob);
             }    
         });
         
@@ -161,12 +168,14 @@ ko.given = (function() {
     }
     
     function createViewModelContext(viewModel) {
+        // Return an existing context for the given viewModel if one exists
         var vmCtx = ko.utils.arrayFirst(ko.given.__givenVmContexts__, function(vmCtx) {
             return vmCtx.viewModel == viewModel;
         })
         if (vmCtx)
             return vmCtx;
         
+        // .. else, create a new one
         vmCtx = {
             viewModel: viewModel,
             validatedObservables: [],
@@ -189,12 +198,6 @@ ko.given = (function() {
                     );
                 })
             },
-            
-            setRuleResultForObservable: function(ruleCtx, ob) {
-                // 1. find the RB for each ob-rule binding
-                // 2. decrement the remaining rule count
-                // 3. set the valid state if count == 0
-            }
         };
         ko.given.__givenVmContexts__.push(vmCtx);
         
@@ -210,18 +213,3 @@ ko.given = (function() {
     }; 
 
 })();
-
-/*
-.givenViewModel(vm)
-    .validateObservable[s](function(vm) {})
-        .setRule([name | function(vm) {}])
-            .when()
-            .withErrorMessage(function (label) {})
-            
-            // used with named rules
-            .withParams
-            .with* (custom with param name)
-            
-    .formatObservable()
-        .withFormatter(name)
-*/
