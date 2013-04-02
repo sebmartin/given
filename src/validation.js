@@ -15,6 +15,10 @@ ko.given = (function() {
         F.prototype = o;
         return new F();
     });
+
+    // Use ES5 method if it exists, fallback if it doesn't.  Note that the fallback does not work if 
+    // array is created in another frame.
+    var isArray = Array.isArray || function(arr) { return arr instanceof Array; }  
     
     function createRuleContext(obCtx, ruleFn) {
         var ruleCtx = {
@@ -180,14 +184,16 @@ ko.given = (function() {
             viewModel: viewModel,
             validatedObservables: [],
             
-            validateObservable: function(fn) {
-                var ob = fn(this.viewModel);
-                return createObservableContext(this, [ob]);
-            },
-
-            validateObservables: function(fn) {
-                var obArray = fn(this.viewModel);
-                return createObservableContext(this, obArray);
+            // Accepts an single observable or an array of observables
+            validate: function(ob) {
+                // If user passed in a function, evalutate it immediately
+                if ((ko.isObservable(ob) == false) && 
+                    isArray(ob) == false &&
+                    typeof ob === "function") 
+                {
+                    ob = ob(viewModel);
+                }
+                return createObservableContext(this, ob);
             },
             
             getRuleBinding: function(ob, ruleCtx) {
