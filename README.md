@@ -161,6 +161,7 @@ There are a few key features on the current roadmap:
 	- **On Change** : observables are only flagged as invalid when the USER changes a field's value.
 	- **On Blur** : similar to on change but it will trigger the field to be validated even if the value is not changed.
 - Some knockout bindings to easily add validation state to your UI.
+- Knockout bindings to easily integrate with Kendo UI.
 
 ##License
 MIT License - [http://www.opensource.org/licenses/mit-license.php](http://www.opensource.org/licenses/mit-license.php)
