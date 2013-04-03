@@ -1,8 +1,8 @@
-**Given JS** adds additional functionality to the Knockout JS library using a streamlined fluent interface.  The first feature being developed is fluent validation API for adding quick and clean client side validation to your forms.  
+**Given JS** adds additional functionality to the Knockout JS library using a streamlined fluent interface.  The first feature being developed is a fluent validation API for adding quick and clean client side validation to your forms.  
 
 ##Validation
 
-The validation API allows for quickly specifying validation rules around a view model and its observables.  The main goal is to end up with clean and easy to read validation rules that are mixed in with the UI or other dependencies.
+The validation API allows for quickly specifying validation rules around a view model and its observables.  The main goal is to define clean and easy to read validation rules that are **not** mixed in with the UI or other dependencies.
 
 ###Example
 
@@ -16,11 +16,11 @@ The validation API allows for quickly specifying validation rules around a view 
 		    });
 
 ###How It Works
-This is all you need to set a validation rule.  No need to bind to a UI elements or subscribe to observables to trigger the validation.  
+The example above shows the basics of defining a validation rule.  No need to bind to a UI elements or subscribe to observables to trigger the validation.  
 
-The validation framework is largely driven by Knockout's computed observable awesomeness.  A computed observable is used to bind the rule logic to all of the observables used within the rule.  Therefore, as soon as any of the observables referenced in the rule are changed, the validation rule executes and updates the state of each computed observable specified with the a call to the **validate**() function.
+The validation framework is largely driven by Knockout's computed observable awesomeness.  A computed observable is used to bind the rule logic to all of the observables used within the rule.  Therefore, as soon as any of the observables referenced in the rule are changed, the validation rule executes and updates the state of each computed observable specified as parameters to the **validate**() function.
 
-Once an observable has been bound to a validation context, it will have two sub-observables defined:
+Once an observable has been associated to a validation rule, it will have two sub-observables defined:
 
 - **isValid** : true if observable is valid, false otherwise
 - **errorMessages** : an array of error messages, one per failed validation rule
@@ -36,7 +36,7 @@ The sub-observables will be defined as
 - vm.firstName.isValid
 - vm.firstName.errorMessages
 
-You can then bind to these from your `data-bind` attributes in your HTML to update the UI when errors occur.
+You can then bind to these from your `data-bind` attributes in your HTML to automatically update the UI when errors occur.
 
 
 ###Specifying a view model
@@ -51,7 +51,7 @@ The validation context is centered around the concept of a view model.  Therefor
 Once you have bound your context to a view model, you need to specify which observables are affected by the validation rule(s).  This is done with the **validate**() function which accepts multiple types of parameters, as described below.
 
 ####A Knockout observable
-This type is used to bind a rule to to a single knockout observable.
+This type is used to bind a rule to a single knockout observable.
 
 	ko.given.viewModel(vm)	
 		.validate( vm.firstName );
@@ -131,30 +131,32 @@ You obtain a new **Rule Scope** every time you call `addRule()`.
 
 You can call any of these methods more than once to manage the context of your rules.  This allows you to specify all of the rules on your view model from a single chain of calls without having to repeat yourself:
 
-	ko.given.viewModel(vm)
-	    .validate(vm.firstName)
-		    .addRule(function(vm) {
-		        return vm.firstName().length > 0;
-		    })
-		.validate(vm.age)
-		    .addRule(function(vm) {
-		        return vm.age() >= 13;
-		    })
-			    .withErrorMessage('You must be 13 years or older.')
-			    .when(function(vm) { return vm.isRegistering() })
-		.validate( [ vm.ob1, vm.ob2 ] )
-			.addRule(function(vm) {
-				// Some rule
-			})
-			.addRule(function(vm) {
-				// Another rule
-			})
+    ko.given.viewModel(vm)
+        .validate(vm.firstName)
+            .addRule(function(vm) {
+                return vm.firstName().length > 0;
+            })
+            
+        .validate(vm.age)
+            .addRule(function(vm) {
+                return vm.age() >= 13;
+            })
+                .withErrorMessage('You must be 13 years or older.')
+                .when(function(vm) { return vm.isRegistering() })
+                
+        .validate( [ vm.ob1, vm.ob2 ] )
+            .addRule(function(vm) {
+                // Some rule
+            })
+            .addRule(function(vm) {
+                // Another rule
+            })
 
 ###What's Next?
 
-There are a few key features on the current roadmap:
+This library is still early in development and there are a few key features on the current roadmap:
 
-- Named rules for the most common validation rules (required, min, max, numeric, etc.)
+- Named rules for common validation rules (required, min, max, numeric, etc.)
 - Ability to specify the trigger for the validation.  This is to allow specifying when a validation rule should be executed.  Some values could include:
 	- **Auto** : as soon as the observable is set/changed
 	- **On Validate** : add a method on the view model to trigger the validation and validation rules will not be executed before this method is called.  This could be desired in order to only show the validation error when the user completes a form.
