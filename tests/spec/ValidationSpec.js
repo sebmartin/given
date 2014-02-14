@@ -5,6 +5,7 @@ describe("Validation:", function() {
 			this.lastName = ko.observable('');
             this.email = ko.observable('');
             this.gender = ko.observable('');
+            this.age = ko.observable(1);
 		})();
 	}
 	
@@ -12,22 +13,22 @@ describe("Validation:", function() {
         var defaultSettings = {};
             
         beforeEach(function() {
-            defaultSettings = ko.given.settings;
-            ko.given.settings = {};
+            defaultSettings = ko.given.validation.settings;
+            ko.given.validation.settings = {};
             for(setting in defaultSettings) {
-                 ko.given.settings[setting] = defaultSettings[setting];
+                 ko.given.validation.settings[setting] = defaultSettings[setting];
             }
         });
             
         afterEach(function() {
-            ko.given.settings = defaultSettings;
+            ko.given.validation.settings = defaultSettings;
         });
             
         it("should allow setting custom names of sub-observables", function() {
             var isValidName = '_isValid';
             var errMsgName = '_errMsg';
-            ko.given.settings.subObservableNameIsValid = isValidName;
-            ko.given.settings.subObservableNameErrorMessages = errMsgName;
+            ko.given.validation.settings.subObservableNameIsValid = isValidName;
+            ko.given.validation.settings.subObservableNameErrorMessages = errMsgName;
                 
             var vm = createBasicViewModel();
             
@@ -43,29 +44,29 @@ describe("Validation:", function() {
             
         it("should allow setting a new default error message", function() {
            var rudeErrMsg = 'This is plain wrong, you dummy!';
-           ko.given.settings.defaultErrorMessage = rudeErrMsg;
+           ko.given.validation.settings.defaultErrorMessage = rudeErrMsg;
                
            var vm = createBasicViewModel();
             
            ko.given.viewModel(vm)
                .validate(vm.firstName)
-               .addRule(function(vm) {
-                   return vm.firstName().length > 0;
-               });
+                   .addRule(function(vm) {
+                       return vm.firstName().length > 0;
+                   });
                
            expect(vm.firstName.errorMessages()[0]).toEqual(rudeErrMsg);
         });
     });
-    
-	describe("A view model context", function() {
-		it("should keep a reference to the VM", function() {
-			var vm = createBasicViewModel();
-			
-			var vmCtx = ko.given.viewModel(vm);
-			
-			expect(vmCtx.viewModel).toBe(vm);
-		});
-        
+
+    describe("A view model context", function() {
+        it("should keep a reference to the VM", function() {
+            var vm = createBasicViewModel();
+
+            var vmCtx = ko.given.viewModel(vm);
+
+            expect(vmCtx.viewModel).toBe(vm);
+        });
+
         describe("with multiple observable contexts", function() {
             it("should always re-use existing view model contexts", function() {
                 var vm = createBasicViewModel();
@@ -351,6 +352,313 @@ describe("Validation:", function() {
                     expect(vm.firstName.isValid()).toBeFalsy();
                     expect(vm.lastName.isValid()).toBeFalsy();
                 });
+            });
+        });
+    });
+    
+    describe("A named validation rule", function() {
+        describe("for email", function() {
+            it("should validate for a valid email", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.email)
+                        .addRule("email");
+
+                vm.email('jsmith@johnny.com');
+                expect(vm.email.isValid()).toBeTruthy();
+                vm.email('j.smith+tag@johnny.com');
+                expect(vm.email.isValid()).toBeTruthy();
+            });
+
+            it("should invalidate for an invalid emails", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.email)
+                        .addRule("email");
+
+                vm.email('t@t.');
+                expect(vm.email.isValid()).toBeFalsy();
+                vm.email('test@test');
+                expect(vm.email.isValid()).toBeFalsy();
+                vm.email('test@.test');
+                expect(vm.email.isValid()).toBeFalsy();
+                vm.email('@test.test');
+                expect(vm.email.isValid()).toBeFalsy();
+                vm.email('test@');
+                expect(vm.email.isValid()).toBeFalsy();
+            });
+        });
+
+        describe("for minimums", function() {
+            it("should validate when parameter is greater than threshold", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.age)
+                        .addRule("min", 10);
+
+                vm.age(11);
+                expect(vm.age.isValid()).toBeTruthy();
+            });
+
+            it("should validate when parameter is equal to threshold", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.age)
+                        .addRule("min", 10);
+
+                vm.age(10);
+                expect(vm.age.isValid()).toBeTruthy();
+            });
+
+            it("should invalidate when parameter is less than threshold", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.age)
+                        .addRule("min", 10);
+
+                vm.age(9);
+
+                expect(vm.age.isValid()).toBeFalsy();
+            });
+        });
+
+        describe("for minimum string lengths", function() {
+            it("should validate when parameter is greater than threshold", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.firstName)
+                        .addRule("minLength", 3);
+
+                vm.firstName("Steve");
+                expect(vm.firstName.isValid()).toBeTruthy();
+            });
+
+            it("should validate when parameter is equal to threshold", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.firstName)
+                        .addRule("minLength", 3);
+
+                vm.firstName("Ali");
+                expect(vm.firstName.isValid()).toBeTruthy();
+            });
+
+            it("should invalidate when parameter is less than threshold", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.firstName)
+                        .addRule("minLength", 3);
+
+                vm.firstName("Al");
+
+                expect(vm.firstName.isValid()).toBeFalsy();
+            });
+        })
+
+        describe("for maximums", function() {
+            it("should validate when parameter is less than threshold", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.age)
+                        .addRule("max", 10);
+
+                vm.age(9);
+                expect(vm.age.isValid()).toBeTruthy();
+            });
+
+            it("should validate when parameter is equal to threshold", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.age)
+                        .addRule("max", 10);
+
+                vm.age(10);
+                expect(vm.age.isValid()).toBeTruthy();
+            });
+
+            it("should invalidate when parameter is less than threshold", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.age)
+                        .addRule("max", 10);
+
+                vm.age(11);
+
+                expect(vm.age.isValid()).toBeFalsy();
+            });
+        });
+
+        describe("for maximum string lengths", function() {
+            it("should validate when parameter is less than threshold", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.firstName)
+                        .addRule("maxLength", 3);
+
+                vm.firstName("Al");
+                expect(vm.firstName.isValid()).toBeTruthy();
+            });
+
+            it("should validate when parameter is equal to threshold", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.firstName)
+                        .addRule("maxLength", 3);
+
+                vm.firstName("Ali");
+                expect(vm.firstName.isValid()).toBeTruthy();
+            });
+
+            it("should invalidate when parameter is less than threshold", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.firstName)
+                        .addRule("maxLength", 3);
+
+                vm.firstName("Steve");
+
+                expect(vm.firstName.isValid()).toBeFalsy();
+            });
+        })
+
+        describe("for regular expression patterns", function() {
+            it("should validate when pattern matches", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.firstName)
+                        .addRule("expression", /[0-9]{3}/);
+
+                vm.firstName("123");
+                expect(vm.firstName.isValid()).toBeTruthy();
+            });
+
+            it("should invalidate when pattern does not match", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.firstName)
+                        .addRule("expression", /[0-9]{3}/);
+
+                vm.firstName("1a3");
+                expect(vm.firstName.isValid()).toBeFalsy();
+            });
+
+            it("should validate when string pattern patches", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.firstName)
+                        .addRule("expression", "[0-9]{3}");
+
+                vm.firstName("123");
+                expect(vm.firstName.isValid()).toBeTruthy();
+            })
+
+            it("should invalidate when string pattern does not patch", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.firstName)
+                        .addRule("expression", "[0-9]{3}");
+
+                vm.firstName("12");
+                expect(vm.firstName.isValid()).toBeFalsy();
+            })
+        });
+
+        describe("custom named rules", function() {
+            var ruleName = "steve";
+            var ruleFunction;
+
+            beforeEach(function() {
+                ruleFunction = function(vm, observable) {
+                    return observable() == "Steve";
+                };
+                ko.given.validation.clearNamedRules();
+                ko.given.validation.addNamedRule(ruleName, ruleFunction);
+            });
+
+            it("should validate when valid", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.firstName)
+                        .addRule(ruleName);
+
+                vm.firstName("Steve");
+
+                expect(vm.firstName.isValid()).toBeTruthy();
+            });
+
+            it("should invalidate when invalid", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.firstName)
+                        .addRule(ruleName);
+
+                vm.firstName("Not Steve");
+
+                expect(vm.firstName.isValid()).toBeFalsy();
+            });
+
+            it("should invalidate all observables if one is invalid", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate([vm.firstName, vm.lastName])
+                        .addRule(ruleName);
+
+                vm.firstName("Steve");
+                vm.lastName("Not Steve");
+
+                expect(vm.firstName.isValid()).toBeFalsy();
+                expect(vm.lastName.isValid()).toBeFalsy();
+            });
+
+            it("should invalidate all observables if they are all invalid", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate([vm.firstName, vm.lastName])
+                        .addRule(ruleName);
+
+                vm.firstName("Not Steve");
+                vm.lastName("Not Steve");
+
+                expect(vm.firstName.isValid()).toBeFalsy();
+                expect(vm.lastName.isValid()).toBeFalsy();
+            });
+
+            it("should validate all observables if they are all valid", function() {
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate([vm.firstName, vm.lastName])
+                        .addRule(ruleName);
+
+                vm.firstName("Steve");
+                vm.lastName("Steve");
+
+                expect(vm.firstName.isValid()).toBeTruthy();
+                expect(vm.lastName.isValid()).toBeTruthy();
+            });
+
+            it("should accept a variable number of parameters", function() {
+                var args = [10, 20, 30, 40, 50];
+                var receivedArgs = [];
+                ko.given.validation.addNamedRule("ascending", function(vm, observable, a1, a2, a3, a4, a5) {
+                    receivedArgs = arguments;
+                    return true;
+                })
+                var vm = createBasicViewModel();
+                ko.given.viewModel(vm)
+                    .validate(vm.firstName)
+                        .addRule("ascending", args[0], args[1], args[2], args[3], args[4]);
+
+                vm.firstName("Steve");
+
+                var same = true;
+                for (var i = 0; i < args.length; i++) {
+                    if (args[i] != receivedArgs[i+2]) {
+                        same = false;
+                        break;
+                    }
+                }
+
+                expect(same).toBeTruthy();;
             });
         });
     });

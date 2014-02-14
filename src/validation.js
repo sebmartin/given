@@ -2,11 +2,26 @@ if (ko === undefined) {
     throw "The knockout JS library must be included before this validation library.";
 }
 ko.given = (function() {
-    // User overridable settings
-    settings = {
-        subObservableNameIsValid: 'isValid',
-        subObservableNameErrorMessages: 'errorMessages',
-        defaultErrorMessage: 'This field is invalid'
+    'use strict';
+    
+    // High level validation functionality
+    var validation = {
+        // User overridable settings
+        settings: {
+            subObservableNameIsValid: 'isValid',
+            subObservableNameErrorMessages: 'errorMessages',
+            defaultErrorMessage: 'This field is invalid'
+        },
+
+        namedRules: {},
+
+        addNamedRule: function(name, fn) {
+            this.namedRules[name] = fn;
+        },
+
+        clearNamedRules: function() {
+            this.namedRules = {};
+        }
     }
     
     // Fallback on native implementation of Object.create if not available
@@ -45,7 +60,7 @@ ko.given = (function() {
                 if (isValid === undefined) {
                     isValid = this.logicObservable();
                 }
-                var errMsg = this.customErrorMessage || ko.given.settings.defaultErrorMessage;
+                var errMsg = this.customErrorMessage || ko.given.validation.settings.defaultErrorMessage;
             
                 // Update each observable linked to the rule
                 var ruleCtx = this;
@@ -65,7 +80,7 @@ ko.given = (function() {
             if (typeof condition === 'function' && condition() == false) {
                 return true;
             }
-            return ruleFn(ruleCtx.observableContext.viewModelContext.viewModel); 
+            return ruleFn(ruleCtx.observableContext.viewModelContext.viewModel);
         });
         
         // Track rule <-> observable bindings.  This is necessary for cases where one observable is validated
@@ -104,17 +119,17 @@ ko.given = (function() {
 
                     wrappedOb: function() {
                         var ob = this.ob;
-                        ob[ko.given.settings.subObservableNameIsValid] = ob[ko.given.settings.subObservableNameIsValid] || ko.observable();
-                        ob[ko.given.settings.subObservableNameErrorMessages] = ob[ko.given.settings.subObservableNameErrorMessages] || ko.observable();
+                        ob[ko.given.validation.settings.subObservableNameIsValid] = ob[ko.given.validation.settings.subObservableNameIsValid] || ko.observable();
+                        ob[ko.given.validation.settings.subObservableNameErrorMessages] = ob[ko.given.validation.settings.subObservableNameErrorMessages] || ko.observable();
                         return ob;
                     },
         
                     setValid: function (value) {
-                        this.wrappedOb()[ko.given.settings.subObservableNameIsValid](value);
+                        this.wrappedOb()[ko.given.validation.settings.subObservableNameIsValid](value);
                     },
         
                     setErrMsg: function(value) {
-                        this.wrappedOb(this.ob)[ko.given.settings.subObservableNameErrorMessages](value);
+                        this.wrappedOb(this.ob)[ko.given.validation.settings.subObservableNameErrorMessages](value);
                     }
                 };            
             }
@@ -163,7 +178,33 @@ ko.given = (function() {
             observables: observables,
             rules: [],
             
-            addRule: function(fn) {
+            addRule: function(/* function || [name, args...] */) {
+                // Wrap the rule function so that it calls it once per observable in the context
+                // (instead of having the named rules worry about the multi-observable scenario)
+                var that = this;
+                var ruleArguments = arguments;
+                var namedRuleWrapper = function(vm) {
+                    var ruleName = ruleArguments[0];
+                    var fn = ko.given.validation.namedRules[ruleName];
+                    if (fn === undefined) {
+                        throw new Error("Could not find a validation rule named '" + ruleName + "'");
+                    }
+                    // Fail the rule for all observables (in context) if at least one of them fails
+                    for (var i = that.observables.length - 1; i >= 0; i--) {
+                        var ob = that.observables[i];
+                        // Arguments for rule function are (vm, observable, ruleArg1, ruleArg2, ...)
+                        var args = [vm,ob].concat([].slice.call(ruleArguments, 1));
+                        if (!fn.apply(null, args))
+                            return false;
+                    };
+                    return true;
+                }
+
+                // If first argument is a string, we're using a named rule
+                var fn = (typeof arguments[0] !== "string" ? 
+                        arguments[0] : 
+                        namedRuleWrapper
+                    );
                 return createRuleContext(this, fn);
             }
         }
@@ -211,11 +252,11 @@ ko.given = (function() {
     }
     
     return {
-        settings: settings,
+        validation: validation,
         viewModel: function(viewModel){
             return createViewModelContext(viewModel);
         },
         __givenVmContexts__: []
-    }; 
+    };
 
 })();
