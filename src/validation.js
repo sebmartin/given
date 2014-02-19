@@ -2,71 +2,91 @@ if (ko === undefined) {
     throw "The knockout JS library must be included before this validation library.";
 }
 ko.given = (function() {
-    // User overridable settings
-    settings = {
-        subObservableNameIsValid: 'isValid',
-        subObservableNameErrorMessages: 'errorMessages',
-        defaultErrorMessage: 'This field is invalid'
-    }
+    'use strict';
     
-    // Fallback on native implementation of Object.create if not available
-    var objectCreate = (Object.create === 'function' ? Object.create : function(o) {
-        function F() {}
-        F.prototype = o;
-        return new F();
-    });
+    // High level validation functionality
+    var validation = {
+        // User overridable settings
+        settings: {
+            subObservableNameIsValid: 'isValid',
+            subObservableNameErrorMessages: 'errorMessages',
+            defaultErrorMessage: 'This field is invalid'
+        },
+
+        namedRules: {},
+
+        addNamedRule: function(name, fn) {
+            this.namedRules[name] = fn;
+        },
+
+        clearNamedRules: function() {
+            this.namedRules = {};
+        }
+    };
 
     // Use ES5 method if it exists, fallback if it doesn't.  Note that the fallback does not work if 
     // array is created in another frame.
     var isArray = Array.isArray || function(arr) { return arr instanceof Array; }  
     
-    function createRuleContext(obCtx, ruleFn) {
-        var ruleCtx = {
-            logicObservable: null, // set below
-            observableContext: obCtx,
-            customErrorMessage: null,
-            condition: ko.observable(),
-            
-            // Specify an error message for a given rule
-            withErrorMessage: function(msg) {
-                this.customErrorMessage = msg;
-                this.updateObservables();
-            },
-            
-            // Specify a condition for the rule.  The rule will only be executed when this
-            // is satisfied.
-            when: function(condition) {
-                this.condition(condition);
-                this.updateObservables();
-            },
-            
-            // Used to set the validity of an observable
-            updateObservables: function(isValid) {
-                if (isValid === undefined) {
-                    isValid = this.logicObservable();
-                }
-                var errMsg = this.customErrorMessage || ko.given.settings.defaultErrorMessage;
-            
-                // Update each observable linked to the rule
-                var ruleCtx = this;
-                ko.utils.arrayForEach(this.observableContext.observables, function(ob) {
-                    var vmCtx = ruleCtx.observableContext.viewModelContext;
-                    var ruleBinding = vmCtx.getRuleBinding(ob, ruleCtx);
-                    ruleBinding.setObservableValidity(isValid, errMsg);
-                });
-            }
+    // Will be implemented further down
+    var createViewModelContext, createObservableContext, createRuleContext;
+
+    var RuleContext = function(obCtx, ruleFn) {
+        var self = this;
+
+        self.observableContext = obCtx;
+        self.logicObservable = null; // set below
+        self.customErrorMessage = null;
+        self.condition = ko.observable();
+        
+        // Specify an error message for a given rule
+        self.withErrorMessage = function(msg) {
+            self.customErrorMessage = msg;
+            self.updateObservables();
+            return self;
         };
         
+        // Specify a condition for the rule.  The rule will only be executed when this
+        // is satisfied.
+        self.when = function(condition) {
+            self.condition(condition);
+            self.updateObservables();
+            return self;
+        };
+        
+        // Used to set the validity of an observable
+        self.updateObservables = function(isValid) {
+            if (isValid === undefined) {
+                isValid = self.logicObservable();
+            }
+            var errMsg = self.customErrorMessage || ko.given.validation.settings.defaultErrorMessage;
+        
+            // Update each observable linked to the rule
+            var ruleCtx = self;
+            ko.utils.arrayForEach(self.observableContext.observables, function(ob) {
+                var vmCtx = ruleCtx.observableContext.viewModelContext;
+                var ruleBinding = vmCtx.getRuleBinding(ob, ruleCtx);
+                ruleBinding.setObservableValidity(isValid, errMsg);
+            });
+        };
+
         // Call the rule within a computed observable to capture all of the dependencies
         // - Returns true if valid, false otherwise
-        ruleCtx.logicObservable = ko.computed(function() {
-            // Rules can be active/inactive based on a condition specified by when()
-            var condition = ruleCtx.condition();
-            if (typeof condition === 'function' && condition() == false) {
+        self.logicObservable = ko.computed(function() {
+            // Rules can be active/inactive based on a rule condition specified by when()
+            var condition = self.condition();
+            if (typeof condition === 'function' && condition(self.viewModel) == false) {
                 return true;
             }
-            return ruleFn(ruleCtx.observableContext.viewModelContext.viewModel); 
+            return ruleFn(self.observableContext.viewModelContext.viewModel);
         });
+    };
+
+    function createRuleContext(obCtx, ruleFn) {
+        // Swap the prototype to be the observable context instance so that all rule contexts created for this
+        // observable context will inherit the _same_ observable context instance.
+        RuleContext.prototype = obCtx;
+        var ruleCtx = new RuleContext(obCtx, ruleFn);
         
         // Track rule <-> observable bindings.  This is necessary for cases where one observable is validated
         // by more than one rule.  If the first rule sets it to invalid but the second sets it to valid, we need
@@ -92,8 +112,7 @@ ko.given = (function() {
                                 var rule = this.rules[i];
                                 if (rule.logicObservable() == false) {
                                     isValid = false;
-                                    errMessages.push(errorMessage);
-                                    break;
+                                    errMessages.push(rule.customErrorMessage || ko.given.validation.settings.defaultErrorMessage);
                                 }
                             }
                             
@@ -104,17 +123,17 @@ ko.given = (function() {
 
                     wrappedOb: function() {
                         var ob = this.ob;
-                        ob[ko.given.settings.subObservableNameIsValid] = ob[ko.given.settings.subObservableNameIsValid] || ko.observable();
-                        ob[ko.given.settings.subObservableNameErrorMessages] = ob[ko.given.settings.subObservableNameErrorMessages] || ko.observable();
+                        ob[ko.given.validation.settings.subObservableNameIsValid] = ob[ko.given.validation.settings.subObservableNameIsValid] || ko.observable();
+                        ob[ko.given.validation.settings.subObservableNameErrorMessages] = ob[ko.given.validation.settings.subObservableNameErrorMessages] || ko.observable();
                         return ob;
                     },
         
                     setValid: function (value) {
-                        this.wrappedOb()[ko.given.settings.subObservableNameIsValid](value);
+                        this.wrappedOb()[ko.given.validation.settings.subObservableNameIsValid](value);
                     },
         
                     setErrMsg: function(value) {
-                        this.wrappedOb(this.ob)[ko.given.settings.subObservableNameErrorMessages](value);
+                        this.wrappedOb(this.ob)[ko.given.validation.settings.subObservableNameErrorMessages](value);
                     }
                 };            
             }
@@ -144,6 +163,44 @@ ko.given = (function() {
         
         return ruleCtx;
     };
+
+
+    var ObservableContext = function(vmCtx, observables) {
+        var self = this;
+
+        self.viewModelContext = vmCtx;
+        self.observables = observables;
+        self.rules = [];
+        
+        self.addRule = function(/* function || [name, args...] */) {
+            // Wrap the rule function so that it calls it once per observable in the context
+            // (instead of having the named rules worry about the multi-observable scenario)
+            var ruleArguments = arguments;
+            var namedRuleWrapper = function(vm) {
+                var ruleName = ruleArguments[0];
+                var fn = ko.given.validation.namedRules[ruleName];
+                if (fn === undefined) {
+                    throw new Error("Could not find a validation rule named '" + ruleName + "'");
+                }
+                // Fail the rule for all observables (in context) if at least one of them fails
+                for (var i = self.observables.length - 1; i >= 0; i--) {
+                    var ob = self.observables[i];
+                    // Arguments for rule function are (vm, observable, ruleArg1, ruleArg2, ...)
+                    var args = [vm,ob].concat([].slice.call(ruleArguments, 1));
+                    if (!fn.apply(null, args))
+                        return false;
+                };
+                return true;
+            }
+
+            // If first argument is a string, we're using a named rule
+            var fn = (typeof arguments[0] !== "string" ? 
+                    arguments[0] : 
+                    namedRuleWrapper
+                );
+            return createRuleContext(this.observableContext || this, fn);
+        };
+    };
     
     function createObservableContext(vmCtx, observables) {
         // wrap observables into an array if not one already
@@ -157,16 +214,11 @@ ko.given = (function() {
                 throw new Error("Invalid Knockout Observabe.  Cannot create observable context with parameter: " + ob);
             }    
         });
-        
-        var obCtx = {
-            viewModelContext: vmCtx,
-            observables: observables,
-            rules: [],
-            
-            addRule: function(fn) {
-                return createRuleContext(this, fn);
-            }
-        }
+
+        // Swap the prototype to be the view model context instance so that all observable contexts created for this
+        // view model context will inherit the _same_ view model context instance.
+        ObservableContext.prototype = vmCtx;        
+        var obCtx = new ObservableContext(vmCtx, observables);
         
         return obCtx;
     }
@@ -193,7 +245,7 @@ ko.given = (function() {
                 {
                     ob = ob(viewModel);
                 }
-                return createObservableContext(this, ob);
+                return createObservableContext(this.viewModelContext || this, ob);
             },
             
             getRuleBinding: function(ob, ruleCtx) {
@@ -211,11 +263,11 @@ ko.given = (function() {
     }
     
     return {
-        settings: settings,
+        validation: validation,
         viewModel: function(viewModel){
             return createViewModelContext(viewModel);
         },
         __givenVmContexts__: []
-    }; 
+    };
 
 })();
