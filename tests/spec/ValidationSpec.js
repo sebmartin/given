@@ -157,7 +157,17 @@ describe("Validation:", function() {
             var obCtx = ko.given.viewModel(vm).validate(function(vm) { return [ vm.firstName, vm.lastName ]; } );
             
             expect(obCtx.observables).toEqual([vm.firstName, vm.lastName]);
-        })
+        });
+
+        it("should allow chaining a new observable context from the same view model context by calling .validate() again", function() {
+            var vm = createBasicViewModel();
+
+            var obCtx1 = ko.given.viewModel(vm).validate(function(vm) { return [ vm.firstName, vm.lastName ]; } );
+            var obCtx2 = obCtx1.validate(function(vm) { return [ vm.email ]; } );
+
+            expect(obCtx1.viewModelContext).toBe(obCtx2.viewModelContext);
+            expect(obCtx1).not.toEqual(obCtx2);
+        });
     });
     
     describe("A rule context", function() {
@@ -198,6 +208,53 @@ describe("Validation:", function() {
                 });
                 
             expect(vm.firstName.isValid()).toBeFalsy();
+        });
+
+        it("should allow chaining a new rule context from the same observable context by calling .addRule() again", function() {
+            var vm = createBasicViewModel();
+
+            var ruleCtx1 = ko.given.viewModel(vm)
+                                .validate(function(vm) { return [ vm.firstName ]; } )
+                                    .addRule(function() { return true; });
+            var ruleCtx2 = ruleCtx1.addRule(function() { return true; });
+
+            expect(ruleCtx1.observableContext).toBe(ruleCtx2.observableContext);
+            expect(ruleCtx1).not.toEqual(ruleCtx2);
+        });
+
+        it("should allow chaining a new observable context from the same view model context by calling .validate() again", function() {
+            var vm = createBasicViewModel();
+
+            var ruleCtx = ko.given.viewModel(vm)
+                                .validate(function(vm) { return [ vm.firstName, vm.lastName ]; } )
+                                    .addRule(function(vm) { return true; });
+            var obCtx = ruleCtx.validate(function(vm) { return vm.email; });
+
+            expect(ruleCtx.viewModelContext).toBe(obCtx.viewModelContext);
+            expect(ruleCtx.observableContext).not.toEqual(obCtx);
+        });
+
+        it("should allow chaining when calling .when()", function () {
+            var vm = createBasicViewModel();
+
+            var ruleCtx1 = ko.given.viewModel(vm)
+                                .validate(function(vm) { return [ vm.firstName, vm.lastName ]; } )
+                                    .addRule(function(vm) { return true; });
+            var ruleCtx2 = ruleCtx1.when(function(vm) { return true; });
+
+            expect(ruleCtx1).toBe(ruleCtx2);
+        });
+
+
+        it("should allow chaining when calling .withErrorMessage()", function () {
+            var vm = createBasicViewModel();
+
+            var ruleCtx1 = ko.given.viewModel(vm)
+                                .validate(function(vm) { return [ vm.firstName, vm.lastName ]; } )
+                                    .addRule(function(vm) { return true; });
+            var ruleCtx2 = ruleCtx1.withErrorMessage(function(vm) { return true; });
+
+            expect(ruleCtx1).toBe(ruleCtx2);
         });
     });
     
@@ -323,7 +380,29 @@ describe("Validation:", function() {
                 expect(vm.firstName.errorMessages()[0]).toEqual(message);
                 expect(vm.lastName.errorMessages()[0]).toEqual(message);
             });
+           
+            it("should allow setting an error message for more than one rule", function() {
+                var vm = createBasicViewModel();
+                var message1 = 'CUSTOM ERROR 1';
+                var message2 = 'CUSTOM ERROR 2';
+
+                ko.given.viewModel(vm)
+                    .validate([ vm.firstName, vm.lastName ])
+                        .addRule(function(vm) {
+                            return false;
+                        })
+                            .withErrorMessage(message1)
+                        .addRule(function(vm) {
+                            return false;
+                        })
+                            .withErrorMessage(message2)
             
+                expect(vm.firstName.errorMessages()[0]).toEqual(message1);
+                expect(vm.lastName.errorMessages()[0]).toEqual(message1);
+                expect(vm.firstName.errorMessages()[1]).toEqual(message2);
+                expect(vm.lastName.errorMessages()[1]).toEqual(message2);
+            });
+
             describe("and a condition", function() {
                 it("should always be valid when the condition fails", function() {
                     var vm = createBasicViewModel();
